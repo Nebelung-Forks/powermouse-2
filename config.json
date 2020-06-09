@@ -1,0 +1,6 @@
+{
+	"port":7080,
+	"caching":false,
+	"protocol":"https",
+	"directIPs":false
+}
