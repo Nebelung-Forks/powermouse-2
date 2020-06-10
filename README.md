@@ -12,3 +12,5 @@ Linux: ctrl+alt+t navigate to folder
 Once the installation is complete, in your terminal you can run `node app` or `npm start` to start the proxy
 The page will be available at https://127.0.0.1:7080/ or whatever you set it to in the config.json file
 If you want a valid ssl certificate you can visit https://www.ssl.com/online-csr-and-key-generator/ or use letsencrypt and get some certificates for your domain and replace cert.pem and key.pem in ssl/ accordingly
+
+Licensed under [GNU General Public License v3.0](LICENSE)
