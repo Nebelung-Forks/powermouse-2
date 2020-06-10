@@ -4,10 +4,6 @@
 
 [![Deploy to Heroku](https://www.herokucdn.com/deploy/button.svg)](https://heroku.com/deploy?template=https://github.com/titaniumnetwork-dev/powermouse) [![Deploy to Azure](https://azuredeploy.net/deploybutton.png)](https://azuredeploy.net/repository=https://github.com/titaniumnetwork-dev/powermouse) [![Run on Repl.it](https://repl.it/badge/github/titaniumnetwork-dev/powermouse)](https://repl.it/github/titaniumnetwork-dev/powermouse)
 
-
-
-
-
 Installation:
 1. Download repo as a zip
 2. Extract to an accessible place (eg. your desktop or home directory)
@@ -18,6 +14,13 @@ Linux: ctrl+alt+t navigate to folder
 5. If all packages were successfully installed, you will see no errors returned
 Once the installation is complete, in your terminal you can run `node app` or `npm start` to start the proxy
 The page will be available at http://127.0.0.1:8080/ or whatever you set it to in the config.json file
+
+Configurating:
+
+To enable/disable use of the ssl certificates, in config.json there is a value named ssl and you can set it to true then visit your instance with https
+
 If you want a valid ssl certificate you can visit https://www.ssl.com/online-csr-and-key-generator/ or use letsencrypt and get some certificates for your domain and replace cert.pem and key.pem in ssl/ accordingly
+
+To change the port your instance is running on, in config.json there is a value named port and you can set it to what you need (http: 80, most nodejs apps: 8080, https: 443)
 
 Licensed under [GNU General Public License v3.0](LICENSE)
