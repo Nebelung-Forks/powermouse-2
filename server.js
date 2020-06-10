@@ -239,7 +239,7 @@ app.use(async (req,res,next)=>{
 			.replace(/<title.*?>.*?<\/ ?title>/gi,'<title>‮</title>')
 			.replace(/("|').[^"']*\.ico(?:\?.*?)?("|')/gi,'$1/favicon.ico$2')
 			.replace(/ ?onmousedown="return rwt\(this,.*?"/gi,'')
-			.replace(/(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)/gi,'255.255.255.255')
+			//.replace(/(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)/gi,'255.255.255.255')
 			.replace(new RegExp(`(?<!base )(srcset|action|data|src|href)="(?!(?:${reqUrl.origin.replace('/','\\/')}|\/))(.*?)"`,'gi'),'$1="'+reqUrl.origin+'/$2"')
 			.replace(new RegExp(`(?<!base )(srcset|action|data|src|href)='(?!(?:${reqUrl.origin.replace('/','\\/')}|\/))(.*?)'`,'gi'),'$1=\''+reqUrl.origin+'/$2\'')
 			.replace(new RegExp(ipv.replace(/\./gi,'\\.'),'gi'),'255.255.255.255')
