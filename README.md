@@ -12,7 +12,7 @@ Linux: ctrl+alt+t navigate to folder
 4. Type the following command into your terminal then press enter `npm install`
 5. If all packages were successfully installed, you will see no errors returned
 Once the installation is complete, in your terminal you can run `node app` or `npm start` to start the proxy
-The page will be available at https://127.0.0.1:7080/ or whatever you set it to in the config.json file
+The page will be available at http://127.0.0.1:8080/ or whatever you set it to in the config.json file
 If you want a valid ssl certificate you can visit https://www.ssl.com/online-csr-and-key-generator/ or use letsencrypt and get some certificates for your domain and replace cert.pem and key.pem in ssl/ accordingly
 
 Licensed under [GNU General Public License v3.0](LICENSE)
