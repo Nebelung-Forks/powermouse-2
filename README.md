@@ -6,7 +6,7 @@
 
 [![Run on Repl.it](https://repl.it/badge/github/titaniumnetwork-dev/powermouse)](https://repl.it/github/titaniumnetwork-dev/powermouse)
 
-[![Deploy to Azure](://azuredeploy.net/deploybutton.png)](https://azuredeploy.net/repository=https://github.com/titaniumnetwork-dev/powermouse)
+[![Deploy to Azure](https://azuredeploy.net/deploybutton.png)](https://azuredeploy.net/repository=https://github.com/titaniumnetwork-dev/powermouse)
 
 Installation:
 1. Download repo as a zip
