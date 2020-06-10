@@ -4,6 +4,9 @@
 
 [![Deploy](https://www.herokucdn.com/deploy/button.svg)](https://heroku.com/deploy?template=https://github.com/titaniumnetwork-dev/powermouse)
 
+[![Run on Repl.it](https://repl.it/badge/github/titaniumnetwork-dev/powermouse)](https://repl.it/github/titaniumnetwork-dev/powermouse)
+
+
 Installation:
 1. Download repo as a zip
 2. Extract to an accessible place (eg. your desktop or home directory)
