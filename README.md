@@ -2,8 +2,7 @@
 ## Powerful http(s) web proxy and flagship TitaniumNetwork proxy
 #### Maintained by Divide#1335 on Discord
 
-[![Deploy](https://www.herokucdn.com/deploy/button.svg)](https://heroku.com/deploy)
-
+[![Deploy](https://www.herokucdn.com/deploy/button.svg)](https://heroku.com/deploy?template=https://github.com/titaniumnetwork-dev/powermouse)
 Installation:
 1. Download repo as a zip
 2. Extract to an accessible place (eg. your desktop or home directory)
