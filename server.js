@@ -32,7 +32,6 @@ var config=JSON.parse(fs.readFileSync('config.json','utf-8')),
 	genErr=((req,res,code,reason)=>{
 		var url=req.url,
 			method=req.method;
-		
 		switch(code){
 			case 400:
 				return res.status(code).contentType('text/html').send(fs.readFileSync(__dirname+'/public/'+code+'.html','utf8').replace('%REASON%',reason).replace(/%METHOD%/gi,method).replace(/%PATH%/gi,url));
@@ -57,7 +56,9 @@ var config=JSON.parse(fs.readFileSync('config.json','utf-8')),
 		if (!/^(?:f|ht)tps?\:\/\//.test(url))url = config.protocol+"://" + url;
 		return url;
 	}),
-	rewrites=[['reddit.com','old.reddit.com'],['www.reddit.com','old.reddit.com'],['google.com','www.google.com']];
+	rewrites=[['reddit.com','old.reddit.com'],['www.reddit.com','old.reddit.com'],['google.com','www.google.com']],
+	ssl={},tt='',
+	mode=0; // proxy mode (discord or general proxying)
 
 global.ipv='127.0.0.1';
 (async()=>{ // funky async function
@@ -65,10 +66,18 @@ global.ipv='127.0.0.1';
 	var body=await res.buffer();
 	ipv=await body.toString('utf8');
 })();
-var ssl={},tt='';
-if(args[0]=='dev')tt=', DEV environment';
-if(args[0]=='dev')ssl={key: fs.readFileSync('ssl/localhost.key','utf8'),cert:fs.readFileSync('ssl/localhost.crt','utf8')}
-else ssl={key: fs.readFileSync('ssl/key.pem','utf8'),cert:fs.readFileSync('ssl/cert.pem','utf8')};
+switch(args[0].toLowerCase()){
+	case'dev':
+		tt=', DEV environment';
+		ssl={key: fs.readFileSync('ssl/localhost.key','utf8'),cert:fs.readFileSync('ssl/localhost.crt','utf8')}
+		break;
+	case'disc':
+		tt=', DISC environment';
+		ssl={key: fs.readFileSync('ssl/default.key','utf8'),cert:fs.readFileSync('ssl/default.key','utf8')};
+		mode=1;
+	default:
+		ssl={key: fs.readFileSync('ssl/default.key','utf8'),cert:fs.readFileSync('ssl/default.key','utf8')};
+}
 if(config.ssl==true)server=https.createServer(ssl,app).listen(port, config.listenip, ()=>{
 	console.log(`Listening on port ${port}${tt}`);
 })
@@ -113,9 +122,12 @@ app.use(async (req,res,next)=>{
 		exit=false,
 		fetchStuff={method:req.method};
 	
+	
+	if(mode!=0 && !req.url.substr(1).match(/https?:\/\//gi))return next(); // when mode isnt default and this isnt specifically proxying, pass on request
+	
 	if(req.url.startsWith('/staticPM/')||req.url=='/favicon.ico')return next();
 	
-	if(req.url=='/'){
+	if(mode==0 && req.url=='/'){
 		res.contentType('text/html');
 		res.status(200);
 		return res.send(fs.readFileSync(__dirname+'/public/index.html','utf8').replace("<span time='%PLACEHOLDER%' id='uptime'>%PLACEHOLDER%</span>",`<span time='${start}' id='uptime'>${getDifference(start,Date.now())}</span>`));
