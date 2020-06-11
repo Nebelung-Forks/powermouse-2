@@ -69,10 +69,10 @@ var ssl={},tt='';
 if(args[0]=='dev')tt=', DEV environment';
 if(args[0]=='dev')ssl={key: fs.readFileSync('ssl/localhost.key','utf8'),cert:fs.readFileSync('ssl/localhost.crt','utf8')}
 else ssl={key: fs.readFileSync('ssl/key.pem','utf8'),cert:fs.readFileSync('ssl/cert.pem','utf8')};
-if(config.ssl==true)server=https.createServer(ssl,app).listen(port, ()=>{
+if(config.ssl==true)server=https.createServer(ssl,app).listen(port, config.listenip, ()=>{
 	console.log(`Listening on port ${port}${tt}`);
 })
-else server=http.createServer(app).listen(port, ()=>{
+else server=http.createServer(app).listen(port, config.listenip, ()=>{
 	console.log(`Listening on port ${port}${tt}`);
 })
 
