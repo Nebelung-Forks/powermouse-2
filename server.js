@@ -352,37 +352,18 @@ app.use(async (req,res,next)=>{
 			}
 			switch(url.host){
 				case'discord.com':
-					sendData=await sendData.replace(
-`        API_ENDPOINT: '//discord.com/api',
-        WEBAPP_ENDPOINT: '//discord.com',
-        CDN_HOST: 'cdn.discordapp.com',
-        ASSET_ENDPOINT: 'https://discord.com',
-        WIDGET_ENDPOINT: '//discord.com/widget',
-        INVITE_HOST: 'discord.gg',
-        GUILD_TEMPLATE_HOST: 'discord.new',
-        GIFT_CODE_HOST: 'discord.gift',
-        RELEASE_CHANNEL: 'stable',
-        MARKETING_ENDPOINT: '//discord.com',
-        BRAINTREE_KEY: 'production_5st77rrc_49pp2rp4phym7387',
-        STRIPE_KEY: 'pk_live_CUQtlpQUF0vufWpnpUmQvcdi',
-        NETWORKING_ENDPOINT: '//router.discordapp.net',
-        PROJECT_ENV: 'production',
-        REMOTE_AUTH_ENDPOINT: '//remote-auth-gateway.discord.gg',`,
-`        API_ENDPOINT: '/https://discord.com/api',
-        WEBAPP_ENDPOINT: '/https://discord.com',
-        CDN_HOST: '/https://cdn.discordapp.com',
-        ASSET_ENDPOINT: '/https://discord.com',
-        WIDGET_ENDPOINT: '/https://discord.com/widget',
-        INVITE_HOST: '/discord.gg',
-        GUILD_TEMPLATE_HOST: '/discord.new',
-        GIFT_CODE_HOST: '/discord.gift',
-        RELEASE_CHANNEL: 'stable',
-        MARKETING_ENDPOINT: '/https://discord.com',
-        BRAINTREE_KEY: 'production_5st77rrc_49pp2rp4phym7387',
-        STRIPE_KEY: 'pk_live_CUQtlpQUF0vufWpnpUmQvcdi',
-        NETWORKING_ENDPOINT: '/https://router.discordapp.net',
-        PROJECT_ENV: 'production',
-        REMOTE_AUTH_ENDPOINT: '${reqUrl.host}/?ws=wss://remote-auth-gateway.discord.gg',`)
+					sendData=await sendData
+					.replace(`API_ENDPOINT: '//discord.com/api'`,`API_ENDPOINT: '/https://discordapp.com/api'`)
+					.replace(`REMOTE_AUTH_ENDPOINT: '//remote-auth-gateway.discord.gg'`,`REMOTE_AUTH_ENDPOINT: '//${reqUrl.host}/?ws=wss://remote-auth-gateway.discord.gg'`)
+					.replace(`WEBAPP_ENDPOINT: '//discord.com'`,`WEBAPP_ENDPOINT: '//${reqUrl.host}/https://discord.com'`)
+					.replace(`CDN_HOST: 'cdn.discordapp.com'`,`CDN_HOST: '${reqUrl.host}/https://cdn.discordapp.com'`)
+					.replace(`ASSET_ENDPOINT: 'https://discord.com'`,`ASSET_ENDPOINT: '/https://discord.com'`)
+					.replace(`WIDGET_ENDPOINT: '//discord.com/widget'`,`WIDGET_ENDPOINT: '//${reqUrl.host}/https://discord.com/widget'`)
+					.replace(`NETWORKING_ENDPOINT: '//router.discordapp.net'`,`NETWORKING_ENDPOINT: '//${reqUrl.host}/https://router.discordapp.net'`)
+					.replace(`MIGRATION_DESTINATION_ORIGIN: 'https://discord.com'`,`MIGRATION_DESTINATION_ORIGIN: '${reqUrl.origin}/https://discord.com'`)
+					.replace(`MIGRATION_SOURCE_ORIGIN: 'https://discordapp.com'`,`MIGRATION_SOURCE_ORIGIN: '${reqUrl.origin}/https://discordapp.com'`)
+					.replace(``,``)
+					.replace(``,``)
 					;
 					break;
 				default:break;
