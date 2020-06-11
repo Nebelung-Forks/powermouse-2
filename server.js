@@ -73,10 +73,10 @@ switch(args[0].toLowerCase()){
 		break;
 	case'disc':
 		tt=', DISC environment';
-		ssl={key: fs.readFileSync('ssl/default.key','utf8'),cert:fs.readFileSync('ssl/default.key','utf8')};
+		ssl={key: fs.readFileSync('ssl/default.key','utf8'),cert:fs.readFileSync('ssl/default.crt','utf8')};
 		mode=1;
 	default:
-		ssl={key: fs.readFileSync('ssl/default.key','utf8'),cert:fs.readFileSync('ssl/default.key','utf8')};
+		ssl={key: fs.readFileSync('ssl/default.key','utf8'),cert:fs.readFileSync('ssl/default.crt','utf8')};
 }
 if(config.ssl==true)server=https.createServer(ssl,app).listen(port, config.listenip, ()=>{
 	console.log(`Listening on port ${port}${tt}`);
