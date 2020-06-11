@@ -83,10 +83,10 @@ sudo add-apt-repository ppa:certbot/certbot -y && sudo apt update -y && sudo apt
 ```
 certbot certonly --standalone
 ```
-5. Move the certificates. Locate the new SSL files in your current directory (list all files in dir using `ls`). One should be cert.pem and some should be key.pem. If not, change the first occurence of "cert/key.pem" in the command below, accordingly.
+5. Move the certificates. Locate the new SSL files in your current directory (list all files in dir using `ls`). One should be default.crt and some should be default.key. If not, change the first occurence of "cert/default.key" in the command below, accordingly.
 ```
-mv cert.pem ssl/cert.pem
-mv key.pem ssl/key.pem
+mv default.crt ssl/default.crt
+mv default.key ssl/default.key
 ```
 6. Edit the config.json. Set SSL to true. Restart powermouse.
 ### Port Chaning
