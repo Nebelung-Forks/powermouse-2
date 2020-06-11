@@ -79,10 +79,6 @@ else switch(args[0].toLowerCase()){
 		tt=', DEV environment';
 		ssl={key: fs.readFileSync('ssl/localhost.key','utf8'),cert:fs.readFileSync('ssl/localhost.crt','utf8')}
 		break;
-	case'disc':
-		tt=', DISC environment';
-		ssl={key: fs.readFileSync('ssl/default.key','utf8'),cert:fs.readFileSync('ssl/default.crt','utf8')};
-		mode=1;
 	default:
 		ssl={key: fs.readFileSync('ssl/default.key','utf8'),cert:fs.readFileSync('ssl/default.crt','utf8')};
 }
@@ -92,90 +88,6 @@ if(config.ssl==true)server=https.createServer(ssl,app).listen(port, config.liste
 });
 else server=http.createServer(app).listen(port, config.listenip, ()=>{
 	console.log(`Listening on port ${port}${tt}`);
-});
-
-if(mode==1)app.use(async (req,res,next)=>{
-	if(req.url.substr(1).match(/https?:\/\//gi))return next();
-	var response,
-		ct='text/html',
-		sendData,url=new URL('https://discord.com'+req.url),
-		reqUrl=new URL(config.protocol+'://'+req.get('host')+req.originalUrl),
-		params={method:req.method,headers:{}};
-		
-	if(req.method=='post')params['body']=JSON.stringify(req.body);
-	response=await fetch(url.href,params);
-	sendData=await response.buffer();
-	
-	Object.entries(req.headers).forEach((e,i,a)=>{
-		var name=e[0].toLowerCase();
-		var value=e[1];
-		if(!value.includes(url.host) && !name.startsWith('Content-security-policy') && !name.startsWith('x-') && !name.startsWith('host') && !name.startsWith('cf-') && !name.startsWith('cdn-loop') )params.headers[name]=value;
-	});
-	
-	params.headers.host='discord.com';
-	
-	response.headers.forEach((e,i,a)=>{
-		if(i=='content-type')ct=e; //safely set content-type
-	});
-	if(ct.startsWith('text/html') || ct.startsWith('application/')){
-		var tmp=sendData.toString('utf8');
-		var regUrlOri=reqUrl.origin.replace('.','\\.').replace('/','\\/'); // safe way to have url origin in regex
-		var ddd='';
-		sendData=await tmp;
-		sendData=await sendData;
-		sendData.split('\n').forEach(e=>ddd+=e+'\n');
-		sendData=await ddd
-		.replace(new RegExp(ipv.replace(/\./gi,'\\.'),'gi'),'255.255.255.255')
-		.replace(/window\.top\.location\.href="\/\/www.coolmath-games.com"/gi,'"t"')
-		;
-		var safeOrigin=url.origin.replace('/','\\/').replace('.','\\.'),
-			safeHost=url.host.replace('.','\\.');
-		
-		if(ct.startsWith('text/html')){
-			sendData=await ddd
-			.replace(new RegExp(safeOrigin,'gi'),'')
-			.replace(new RegExp('//'+safeHost,'gi'),'')
-			.replace(/ ?integrity=".*?" ?/gi,'') // integrity cant be used 
-			.replace(/ ?nonce=".*?" ?/gi,'') // nonce = poo
-			.replace(new RegExp(`
-        API_ENDPOINT: '\/api',
-        WEBAPP_ENDPOINT: '',
-        CDN_HOST: 'cdn.discordapp.com',
-        ASSET_ENDPOINT: '',
-        WIDGET_ENDPOINT: '\/widget',
-        INVITE_HOST: 'discord.gg',
-        GUILD_TEMPLATE_HOST: 'discord.new',
-        GIFT_CODE_HOST: 'discord.gift',
-        RELEASE_CHANNEL: 'stable',`,'gi')
-		,`
-        API_ENDPOINT: '/https://discordapp.com/api',
-        WEBAPP_ENDPOINT: '//${reqUrl.origin}/https://discord.com',
-        CDN_HOST: '${reqUrl.host}/https://cdn.discordapp.com',
-        ASSET_ENDPOINT: 'https://discord.com',
-        WIDGET_ENDPOINT: '//discord.com/widget',
-        INVITE_HOST: 'discord.gg',
-        GUILD_TEMPLATE_HOST: 'discord.new',
-        GIFT_CODE_HOST: 'discord.gift',
-        RELEASE_CHANNEL: 'stable',`)
-			.replace(new RegExp(`
-        NETWORKING_ENDPOINT: '\/\/router.discordapp.net',
-        PROJECT_ENV: 'production',
-        REMOTE_AUTH_ENDPOINT: '\/\/remote-auth-gateway.discord.gg',
-        SENTRY_TAGS: (.*?),
-        MIGRATION_SOURCE_ORIGIN: 'https:\/\/discordapp.com',`,'gi')
-		,`
-        NETWORKING_ENDPOINT: '//router.discordapp.net',
-        PROJECT_ENV: 'production',
-        REMOTE_AUTH_ENDPOINT: '//${reqUrl.host}/?ws=wss://remote-auth-gateway.discord.gg',
-        SENTRY_TAGS: `+'$1'+`,
-        MIGRATION_SOURCE_ORIGIN: 'https://discordapp.com',`)
-			//.replace(new RegExp('cdn\.discordapp\.com','gi'),'')
-			;
-		}
-	}
-	res.status(response.status);
-	res.contentType(ct);
-	res.send(sendData);
 });
 
 app.get('/staticPM/',(req,res)=>{
@@ -208,12 +120,9 @@ app.use(async (req,res,next)=>{
 		exit=false,
 		fetchStuff={method:req.method};
 	
-	
-	if(mode!=0 && !req.url.substr(1).match(/https?:\/\//gi))return next(); // when mode isnt default and this isnt specifically proxying, pass on request
-	
 	if(req.url.startsWith('/staticPM/')||req.url=='/favicon.ico')return next();
 	
-	if(mode==0 && req.url=='/'){
+	if(req.url=='/'){
 		res.contentType('text/html');
 		res.status(200);
 		return res.send(fs.readFileSync(__dirname+'/public/index.html','utf8').replace("<span time='%PLACEHOLDER%' id='uptime'>%PLACEHOLDER%</span>",`<span time='${start}' id='uptime'>${getDifference(start,Date.now())}</span>`));
