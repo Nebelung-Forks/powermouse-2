@@ -69,10 +69,10 @@ var ssl={},tt='';
 if(args[0]=='dev')tt=', DEV environment';
 if(args[0]=='dev')ssl={key: fs.readFileSync('ssl/localhost.key','utf8'),cert:fs.readFileSync('ssl/localhost.crt','utf8')}
 else ssl={key: fs.readFileSync('ssl/key.pem','utf8'),cert:fs.readFileSync('ssl/cert.pem','utf8')};
-if(config.ssl==true)server=https.createServer(ssl,app).listen(port, config.listenip, ()=>{
+if(config.ssl==true)server=https.createServer(ssl,app).listen(port, ()=>{
 	console.log(`Listening on port ${port}${tt}`);
 })
-else server=http.createServer(app).listen(port, config.listenip, ()=>{
+else server=http.createServer(app).listen(port, ()=>{
 	console.log(`Listening on port ${port}${tt}`);
 })
 
@@ -242,7 +242,7 @@ app.use(async (req,res,next)=>{
 			//.replace(/(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)/gi,'255.255.255.255')
 			.replace(new RegExp(`(?<!base )(srcset|action|data|src|href)="(?!(?:${reqUrl.origin.replace('/','\\/')}|\/))(.*?)"`,'gi'),'$1="'+reqUrl.origin+'/$2"')
 			.replace(new RegExp(`(?<!base )(srcset|action|data|src|href)='(?!(?:${reqUrl.origin.replace('/','\\/')}|\/))(.*?)'`,'gi'),'$1=\''+reqUrl.origin+'/$2\'')
-			.replace(new RegExp(ipv.replace(/\./gi,'\\.'),'gi'),'255.255.255.255')
+			.replace(new RegExp(ipv,'gi'),'255.255.255.255')
 			.replace(new RegExp(`${regUrlOri}\/\.\/`,'gi'),`./`)
 			.replace(new RegExp(`${reqUrl.host}\/(?!https?:\/\/)(.*)`,'gi'),reqUrl.host+'/https://$1')
 			.replace(/pmUrl ?= ?("|').*?("|')/gi,'pmUrl=pmUrl')
