@@ -18,11 +18,10 @@ var config=JSON.parse(fs.readFileSync('config.json','utf-8')),
 		resave: true,
 		saveUninitialized: true
 	}),
-	caching=config.caching,
 	args=process.argv.splice(2),
 	port=process.env.PORT||config.port,
-	re_proxied_xmlns = new RegExp('(xmlns(:[a-z]+)?=")\/', 'ig'),
-	re_proxied_doctype = new RegExp('(<!DOCTYPE[^>]+")\/', 'i'),
+	rewrites=[['reddit.com','old.reddit.com'],['www.reddit.com','old.reddit.com'],['google.com','www.google.com']],
+	ssl={},tt='',
 	httpsAgent = new https.Agent({
 		rejectUnauthorized: false,
 	}),
@@ -53,14 +52,18 @@ var config=JSON.parse(fs.readFileSync('config.json','utf-8')),
 		return `${h} hours, ${m} minutes, ${s} seconds`
 	}),
 	addproto=((url)=>{
-		if (!/^(?:f|ht)tps?\:\/\//.test(url))url = config.protocol+"://" + url;
+		if (!/^(?:f|ht)tps?\:\/\//.test(url))url = "https://" + url;
 		return url;
 	}),
-	rewrites=[['reddit.com','old.reddit.com'],['www.reddit.com','old.reddit.com'],['google.com','www.google.com']],
-	ssl={},tt='',
-	mode=0; // proxy mode (discord or general proxying)
+	ready=(()=>{
+		if(config.listenip=='0.0.0.0' || config.listenip=='127.0.0.1')config.listenip='localhost';
+		var proto='http';
+		if(config.ssl==true)proto='https';
+		console.log(`Listening on ${proto}://${config.listenip}:${port}${tt}`);
+	});
 
-global.ipv='127.0.0.1';
+global.ipv='127.0.0.1'; // define ip before its set
+
 (async()=>{ // funky async function
 	var res=await fetch('http://bot.whatismyipaddress.com/');
 	var body=await res.buffer();
@@ -82,36 +85,26 @@ else switch(args[0].toLowerCase()){
 	default:
 		ssl={key: fs.readFileSync('ssl/default.key','utf8'),cert:fs.readFileSync('ssl/default.crt','utf8')};
 }
-
-if(config.ssl==true)server=https.createServer(ssl,app).listen(port, config.listenip, ()=>{
-	console.log(`Listening on port ${port}${tt}`);
-});
-else server=http.createServer(app).listen(port, config.listenip, ()=>{
-	console.log(`Listening on port ${port}${tt}`);
-});
+listen=config.listenip;
+if(config.ssl==true)server=https.createServer(ssl,app).listen(port, config.listenip,ready);
+else server=http.createServer(app).listen(port, config.listenip,ready);
 
 app.get('/staticPM/',(req,res)=>{
 	return res.redirect('/');
 });
 
-app.post('/prox',(req,res,next)=>{
-	if(!req.body||!req.body.url)return next();
+app.use((req,res,next)=>{
+	if( !req.url.startsWith('/prox') ||  (req.method=='POST' && !req.body.url) || (req.method=='GET' && !req.query.url) )return next();
 	var url;
-	try{ url=new URL(addproto(req.body.url))
-	}catch{ return next(); } // dont parse broken urls
-	res.redirect('/'+url.href)
-});
-
-app.get('/prox',(req,res,next)=>{
-	if(!req.query||!req.query.url)return next();
-	var url;
-	try{ url=new URL(addproto(req.query.url))
-	}catch{ return next(); } // dont parse broken urls
-	res.redirect('/'+url.href)
+	if(req.method=='GET')url=req.query.url
+	else if(req.method=='POST')url=req.body.url;
+	try{url=new URL(addproto(url))}
+	catch{return next()} // dont parse bad urls
+	res.redirect('/'+url.href);
 });
 
 app.use(async (req,res,next)=>{
-	var reqUrl=new URL(config.protocol+'://'+req.get('host')+req.originalUrl);
+	var reqUrl=new URL('https://'+req.get('host')+req.originalUrl);
 	var url,
 		headers={},
 		response,
@@ -131,7 +124,7 @@ app.use(async (req,res,next)=>{
 	if(req.url.substr(1).match(tooManyOrigins))return res.redirect(307,req.url.replace(tooManyOrigins,''));
 	try{
 		url=new URL(req.url.substr(1));
-		if(!url.hostname.match(/.*?\....?/gi))throw 'FUC';
+		if(!url.hostname.match(/.*?\....?/gi))throw new error('FUC');
 		req.session.tempOrigin=url.origin;
 	}catch(err){
 		if(req.headers.referer){
@@ -233,10 +226,10 @@ app.use(async (req,res,next)=>{
 			.replace(/(?<!base )(srcset|action|data|src|href)='\/((?!\/).*?)'/gi,'$1=\'/'+url.origin+'/$2\'')
 			.replace(new RegExp(`(srcset|action|data|src|href)="${reqUrl.hostname}(\/.*?)"`,'gi'),'$1="'+url.origin+'$2"')
 			.replace(new RegExp(`(srcset|action|data|src|href)=\'${reqUrl.hostname}(\/.*?)\'`,'gi'),'$1=\''+url.origin+'$2\'')
-			.replace(re_proxied_xmlns, "$1")
-			.replace(re_proxied_doctype, "$1")
+			.replace(/(xmlns(:[a-z]+)?=")\//gi, "$1")
+			.replace(/(<!DOCTYPE[^>]+")\//i, "$1")
 			.replace(url.host,`${reqUrl.host}/${url.host}`)
-			.replace(new RegExp(`/(${config.protocol}://)${reqUrl.host}/`,'gi'),'/$1')
+			.replace(new RegExp(`/(https://)${reqUrl.host}/`,'gi'),'/$1')
 			.replace(/ ?integrity=".*?" ?/gi,'') // integrity cant be used 
 			.replace(/ ?nonce=".*?" ?/gi,'') // nonce = poo
 			.replace(/"(wss:\/\/.*?)"/gi,`"wss://${reqUrl.host}/ws/?ws=`+'$1"')
