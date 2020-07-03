@@ -1,6 +1,10 @@
 {
-	"listenip":"127.0.0.1",
-	"port":8080,
+	"listenip":"0.0.0.0",
+	"port":80,
 	"directIPs":false,
-	"ssl":false
+	"ssl":true,
+	"workers": false,
+	"workerCount": 4,
+	"maxWorkerErrors": 12,
+	"sessionTimeout": 3600000
 }

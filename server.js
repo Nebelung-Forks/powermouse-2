@@ -1,49 +1,68 @@
 const fs=require('fs'),
-	colors=require('colors'),
+	threads=require('worker_threads'),
 	fetch=require('node-fetch'),
 	express=require('express'),
+	websocket=require('ws'),
 	app=express(),
 	path=require('path'),
 	mime=require('mime'),
 	util=require('util'),
-	cookieParser = require('cookie-parser'),
-	streamPipeline = util.promisify(require('stream').pipeline),
+	cookieParser=require('cookie-parser'),
+	streamPipeline=util.promisify(require('stream').pipeline),
 	https=require('https'),
 	http=require('http'),
 	bodyParser=require('body-parser'),
+	htmlMinify=require('html-minifier'),
+	compression=require('compression'),
+	os=require('os'),
+	crypto = require('crypto'),
 	start=Date.now();
 var config=JSON.parse(fs.readFileSync('config.json','utf-8')),
-	session = require("express-session")({
-		secret: "secret",
-		resave: true,
-		saveUninitialized: true
-	}),
+	port,
 	args=process.argv.splice(2),
-	port=process.env.PORT||config.port,
-	rewrites=[['reddit.com','old.reddit.com'],['www.reddit.com','old.reddit.com'],['google.com','www.google.com']],
 	ssl={},tt='',
+	msgPage=page=fs.readFileSync(__dirname+'/public/error.html','utf8');
 	httpsAgent = new https.Agent({
 		rejectUnauthorized: false,
 	}),
 	httpAgent = new http.Agent({
 		rejectUnauthorized: false,
 	}),
-	genErr=((req,res,code,reason)=>{
+	genMsg=((req,res,code,value)=>{
 		var url=req.url,
 			method=req.method;
+		res.contentType('text/html');
 		switch(code){
-			case 400:
-				return res.status(code).contentType('text/html').send(fs.readFileSync(__dirname+'/public/'+code+'.html','utf8').replace('%REASON%',reason).replace(/%METHOD%/gi,method).replace(/%PATH%/gi,url));
+			case 696: // glorified 404
+				res.status(404)
+				return res.send(msgPage.replace('%TITLE%','Bad domain').replace('%REASON%', (value || `Cannot ${method} ${url}`) ));
 				break
-			case 403: 
-				return res.status(code).contentType('text/html').send(fs.readFileSync(__dirname+'/public/'+code+'.html','utf8').replace('%REASON%',reason));
+			case 697:
+				res.status(500)
+				return res.send(msgPage.replace('%TITLE%',value.code).replace('%REASON%', value.message ));
+				break
+			case 400:
+				res.status(code)
+				return res.send(msgPage.replace('%TITLE%',code).replace('%REASON%', (value || 'Bad request') ));
+				break
+			case 403:
+				res.status(code)
+				return res.send(msgPage.replace('%TITLE%',code).replace('%REASON%', (value || 'Access forbidden') ));
+				break
+			case 500:
+				res.status(code)
+				return res.send(msgPage.replace('%TITLE%',code).replace('%REASON%', (value || 'A server is unable to handle your request') ));
 				break
 			case 404:
 			default:
-				return res.status(code).contentType('text/html').send(fs.readFileSync(__dirname+'/public/'+code+'.html','utf8').replace(/%METHOD%/gi,method).replace(/%PATH%/gi,url));
+				res.status(code);
+				return res.send(msgPage.replace('%TITLE%',code).replace('%REASON%',`Cannot ${method} ${url}`));
 				break
 		}
 	}),
+	randomIP=(()=>{
+		return (Math.floor(Math.random() * 255) + 1)+"."+(Math.floor(Math.random() * 255))+"."+(Math.floor(Math.random() * 255))+"."+(Math.floor(Math.random() * 255))
+	});
 	getDifference=((begin,finish)=>{
 		var ud=new Date(finish-begin);
 		var s=Math.round(ud.getSeconds());
@@ -55,27 +74,66 @@ var config=JSON.parse(fs.readFileSync('config.json','utf-8')),
 		if (!/^(?:f|ht)tps?\:\/\//.test(url))url = "https://" + url;
 		return url;
 	}),
+	similar=((a,b)=>{
+		var equivalency = 0;
+		var minLength = (a.length > b.length) ? b.length : a.length;    
+		var maxLength = (a.length < b.length) ? b.length : a.length;    
+		for(var i=0;i<minLength;i++)if(a[i]==b[i])equivalency++;
+		var weight = equivalency / maxLength;
+		return (weight * 100);
+	}),
 	ready=(()=>{
 		if(config.listenip=='0.0.0.0' || config.listenip=='127.0.0.1')config.listenip='localhost';
 		var proto='http';
 		if(config.ssl==true)proto='https';
-		console.log(`Listening on ${proto}://${config.listenip}:${port}${tt}`);
+		var msg=`Listening on ${proto}://${config.listenip}:${port}${tt}`;
+		threads.parentPort.postMessage({type:'log', id: threads.threadId, value: msg});
 	});
 
+global.btoa=((str,encoding)=>{
+	let enc='base64';
+	if(typeof encoding!='undefined')enc=encoding;
+	return Buffer.from(str,'utf8').toString(enc)
+});
+
+global.atob=((str,encoding)=>{
+	let enc='base64';
+	if(typeof encoding!='undefined')enc=encoding;
+	return Buffer.from(str,enc).toString('utf8')
+});
+
 global.ipv='127.0.0.1'; // define ip before its set
+global.tlds=/./g; // define tlds before set
+global.tldList=[];
 
-(async()=>{ // funky async function
-	var res=await fetch('http://bot.whatismyipaddress.com/');
-	var body=await res.buffer();
-	ipv=await body.toString('utf8');
-})();
+var data=threads.workerData;
+global.sessions={}
+ipv = data.ipv;
+tlds = data.tlds;
+port = data.port;
+tldList = data.tldList;
 
-app.use(session);
+threads.parentPort.on('message',(data)=>{
+	switch(data.type){
+		case'update_session':
+			sessions=data.sessions;
+			break
+		default:
+			console.log(data);
+			break
+	}
+});
+
 app.use(cookieParser());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({
 	extended: true
 }));
+app.use(compression());
+
+http.globalAgent.maxSockets = Infinity;
+https.globalAgent.maxSockets = Infinity;
+
 if(!args || !args[0])ssl={key: fs.readFileSync('ssl/default.key','utf8'),cert:fs.readFileSync('ssl/default.crt','utf8')};
 else switch(args[0].toLowerCase()){
 	case'dev':
@@ -89,8 +147,113 @@ listen=config.listenip;
 if(config.ssl==true)server=https.createServer(ssl,app).listen(port, config.listenip,ready);
 else server=http.createServer(app).listen(port, config.listenip,ready);
 
-app.get('/staticPM/',(req,res)=>{
+var wss=new websocket.Server({
+		server: server,
+		path: '/ws/'
+	}),conns=0;
+
+require('./ws.js')(wss,conns);
+
+app.get('/pm-cgi/',(req,res)=>{
 	return res.redirect('/');
+});
+
+app.get('/suggestions',(req,res)=>{ // autocomplete urls
+	if(typeof req.query.input != 'string' || req.query.input == '')return genMsg(req,res,400,'Invalid domain input/type');
+	var suggestions=[],input=req.query.input,index=0,tldCheck='',sortedList={},matched=input.match(/\..{2,3}(?:\.?.{2,3})?/gim);
+	
+	res.status(200);res.contentType('application/json');
+	
+	if(matched===null || matched==='')return res.send(JSON.stringify(['com','net','org','io','dev'])); else tldCheck=matched[0].substr(1);
+	tldList.forEach((e,i)=>sortedList[similar(tldCheck,e)]=e);
+	var bruvList=Object.entries(sortedList).sort(((a,b)=>{
+			return a[0] - b[0];
+	})).reverse();
+	bruvList.forEach((e,i)=>{
+		if(index>5)return;
+		index++;
+		suggestions.push(e[1]);
+	});
+	return res.send(JSON.stringify(suggestions));
+});
+
+app.get('/linkGen',(req,res,next)=>{
+	var file=fs.readFileSync(path.join(__dirname, 'public/linkGen.html'));
+	res.status(200);
+	res.contentType('text/html');
+	return res.send(file);
+});
+
+var urlData=JSON.parse(fs.readFileSync('urlData.json','utf8')),
+	writeURLs=(()=>{
+		var perhaps=JSON.parse(fs.readFileSync('urlData.json','utf8'));
+		if(urlData == perhaps)return false; // the url data hasnt changed
+		// if the above hasnt done a thing then code continues
+		fs.writeFileSync('urlData.json',JSON.stringify(urlData,null,'\t'),'utf-8');
+		// data success
+	}),
+	reloadURLs=(()=>{
+		// we read file stuff now
+		var perhaps=JSON.parse(fs.readFileSync('urlData.json','utf8'));
+		if(urlData != perhaps)urlData=perhaps;
+	}),
+	urlExpire=10800000;
+	// 3000 = 3 seconds, 10000 = 10 seconds, 60000 = 1 minute, 180000 = 3 minutes, 10800000 = 3 hours
+
+app.post('/alias',(req,res,next)=>{
+	var url = req.body.url.trim().toLowerCase().replace(/[^a-z0-9.:\/]/gi,''), // replace bad characters
+		alias = req.body.alias.trim().toLowerCase().replace(/[^a-z0-9.:\/]/gi,''), // replace more bad characters!
+		reqUrl=new URL('https://'+req.get('host')+req.originalUrl),
+		sideNote=''; // additional user message for later if needed
+	try{
+		url=new URL(url).origin
+	}catch(err){
+		res.status(400);res.contentType('text/html');
+		return res.send(msgPage.replace('%TITLE%',err.code).replace('%REASON%',err.message));
+	}
+	
+	url=addproto(url); // this is done on the client too for checking but is needed here
+	reloadURLs(); // reload url list
+	
+	// Alias errors
+	
+	if(alias == '')sideNote=`A random alias had to be generated due to an alias not being specified`;
+	if(urlData.some(e=> e.alias.startsWith(alias) || alias.startsWith(e.alias) ) )sideNote=`A random alias had to be generated due to conflicts with other aliases`;
+	if(alias.length < 4)sideNote=`The alias specified was shorter than 4 characters so a random one was generated`;
+	
+	// URL errors
+	if(config.directIPs==false && url.match(/(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)/gi)){
+		res.status(400);res.contentType('text/html');
+		return res.send(page.replace('%TITLE%','Bad URL').replace('%REASON%','Aliases pointing to an IP address are not permitted'));
+	}else if(typeof url != 'string'){
+		res.status(400);res.contentType('text/html');
+		return res.send(page.replace('%TITLE%','Bad URL').replace('%REASON%','The URL specified is not a valid string'));
+	}else if(!url.match(tlds)){
+		res.status(400);res.contentType('text/html');
+		return res.send(page.replace('%TITLE%','Bad URL').replace('%REASON%','The URL specified was not a valid URL'));
+	}
+	
+	if(alias == '' || alias.length <= 4 || urlData.some(e=> e.alias.startsWith(alias) || alias.startsWith(e.alias) ) ){
+		while(true){
+			alias = Math.random().toString(36).substring(2, 8) + Math.random().toString(36).substring(2, 8); // random alias
+			if( urlData.some(e=>e.value == alias) )continue; // if the new alias has bee found in the url data, try again
+			break;
+		}
+	}
+	urlData.push({
+		time: Date.now(),
+		value: addproto(url),
+		alias: alias
+	});
+	writeURLs();
+	res.status(200);
+	res.contentType('text/html');
+	
+	if(sideNote != '')sideNote=`<div class='lbottom'><span id='logMsg'>`+sideNote+`</span></div>`;
+	return res.send(msgPage.replace('%TITLE%','Success').replace('%REASON%',`
+	<a href="./${reqUrl.origin}/alias/${alias}"><span>${reqUrl.origin}/alias/${alias}</span></a> now points to <a href="./${addproto(url)}"><span>${addproto(url)}</span></a>
+	${sideNote}
+	`));
 });
 
 app.use((req,res,next)=>{
@@ -104,78 +267,92 @@ app.use((req,res,next)=>{
 });
 
 app.use(async (req,res,next)=>{
-	var reqUrl=new URL('https://'+req.get('host')+req.originalUrl);
-	var url,
+	if(req.query.ws != undefined)return next(); // bruh this probably a websocket dont proxy that
+	
+	var sid = req.cookies['connect.sid'];
+	
+	if(sid == undefined){
+		while(true){
+			sid = crypto.randomBytes(16).toString('hex');
+			if(sessions[sid] != null)continue;
+			break;
+		}
+	}
+	
+	res.cookie('connect.sid', sid , { maxAge: 900000, httpOnly: true });
+	
+	if(sessions[sid] == null)sessions[sid]={}
+	
+	sessions[sid].__lastAccess = Date.now();
+	sessions[sid].sid = sid;
+	
+	req.session=sessions[sid];
+	
+	var reqUrl=new URL('https://'+req.get('host')+req.originalUrl),
+		url,
 		headers={},
 		response,
 		ct='notset',
 		sendData,
-		exit=false,
-		fetchStuff={method:req.method};
+		fetchStuff={method:req.method,redirect:'follow'};
 	
-	if(req.url.startsWith('/staticPM/')||req.url=='/favicon.ico')return next();
+	if(req.url.startsWith('/pm-cgi/')||req.url=='/favicon.ico')return next();
 	
 	if(req.url=='/'){
 		res.contentType('text/html');
 		res.status(200);
 		return res.send(fs.readFileSync(__dirname+'/public/index.html','utf8').replace("<span time='%PLACEHOLDER%' id='uptime'>%PLACEHOLDER%</span>",`<span time='${start}' id='uptime'>${getDifference(start,Date.now())}</span>`));
 	}
+	
+	if(req.url=='/https://discordapp.com/api/v6/auth/login')return res.status(400).contentType('application/json; charset=utf-8').send(JSON.stringify({ email: 'Use the QR code scanner or token login' }));
+	
 	var tooManyOrigins=new RegExp(`${reqUrl.origin.replace(/\//g,'\\/').replace(/\./gi,'\\.')}\/`,'gi');
 	if(req.url.substr(1).match(tooManyOrigins))return res.redirect(307,req.url.replace(tooManyOrigins,''));
-	try{
+	
+	var tooManyOrigins=new RegExp(`//${reqUrl.host.replace(/\\./g,'\\.')}`,'gi');
+	if(req.url.substr(1).match(tooManyOrigins))return res.redirect(307,req.url.replace(tooManyOrigins,''));
+	
+	reloadURLs();
+	var aliasMode=urlData.some(e=>req.url.match(new RegExp(`^/alias/${e.alias}`,'gi')));
+	var shor='placeholder', newURL='placeholder', aliasSet='placeholder';
+	if( aliasMode ){ // if a shortened url link matches in the url stuff
+		
+		urlData.forEach((e,i)=>{
+			var regoink=new RegExp(`^/alias/${e.alias}`,'gi');
+			if(req.url.match(regoink)){
+				shor=e.value; // set shortened to the value found within the url data stuff
+				aliasSet = e.alias;
+				newURL=req.url.replace(regoink,e.value);
+				url=new URL(newURL);
+				
+			}
+		});
+		
+	}else try{
 		url=new URL(req.url.substr(1));
 		if(!url.hostname.match(/.*?\....?/gi))throw new error('FUC');
-		req.session.tempOrigin=url.origin;
 	}catch(err){
-		if(req.headers.referer){
-			try{
-				var ref=new URL(req.headers.referer.substr(reqUrl.origin.length+1)),
-					requ=req.url.replace(/^\/https:\/\//gi,'/'),
-					completeURL='/'+ref.origin+requ;
-					req.session.tempOrigin=ref.origin;
-				return res.redirect(307,completeURL);
-			}catch(e){
-				var yy=req.session.tempOrigin;
-				if(typeof req.session.tempOrigin == 'undefined')return genErr(req,res,404);
-				setTimeout(()=>{
-					//req.session.destroy(); // clear after
-				},1600);
-				return res.redirect(307,'/'+yy+'/'+req.url.substr(1));
-			}
-		}else if(req.session.tempOrigin&&req.session.tempOrigin.length>=2){
-			var yy=req.session.tempOrigin;
-			if(typeof req.session.tempOrigin == 'undefined')return genErr(req,res,400,'Your client sent a bad request.');
-			setTimeout(()=>{
-				req.session.destroy(); // clear after
-			},1600);
-			return res.redirect(307,'/'+yy+'/'+req.url.substr(1));
+		// req.session.ref is only set when the content-type is text/html and is not an iframe or object
+		if(req.session.ref != undefined && req.session.ref.length>=1){
+			var ref=new URL(req.session.ref),newURL='/'+ref.origin+req.url;
+			
+			if(newURL == undefined)return genMsg(req,res,404); // not poggers!
+			
+			return res.redirect(307,newURL); //	/cdn/ => https://domain.tld + /cdn/bruh.js
 		}else{
-			try{
-				if(!req.url.includes('http') && req.url.match(/.*?\..*?\//gi))url=new URL('https://'+req.url.substr(1))
-				else return genErr(req,res,404);
-			}catch(err){
-				return genErr(req,res,404);
-			}
+			return genMsg(req,res,404);
 		}
 	}
 	
-	if(config.directIPs==false && url.hostname.match(/(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)/gi))return genErr(req,res,403,'Direct IP access not permitted.');
-	if(req.url!='/'+url.href)return res.redirect(307,'/'+url.href);
+	if(config.directIPs==false && url.hostname.match(/(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)/gi))return genMsg(req,res,403,'Direct IP access is not permitted');
+	
+	if(!url.hostname.match(tlds))return genMsg(req,res,696);
+	
+	if(!aliasMode && req.url!='/'+url.href)return res.redirect(307,'/'+url.href);
 	
 	var proto=url.protocol.substr(0,url.protocol.length-1);
 	if(proto=='http')fetchStuff['agent']=httpAgent
 	else if(proto=='https')fetchStuff['agent']=httpsAgent;
-	
-	rewrites.forEach((e,i,a)=>{
-		if(!e[0]||!e[1])return;
-		var find=e[0].replace(/^www\./gi,'') // remove www.
-		var replace=e[1];
-		if(url.host.startsWith(find)){
-			res.redirect(307,'/'+addproto(replace)+url.pathname+url.search);
-			exit=true;
-		}
-	});
-	if(exit)return;
 	
 	if(req.method=='POST')fetchStuff['body']=JSON.stringify(req.body);
 	Object.entries(req.headers).forEach((e,i,a)=>{
@@ -184,16 +361,35 @@ app.use(async (req,res,next)=>{
 		if(value.includes(url.host) || name.startsWith('Content-security-policy') || name.startsWith('x-') || name.startsWith('host') || name.startsWith('cf-') || name.startsWith('cdn-loop') )return;
 		headers[name]=value;
 	});
-
-	if(url.host.includes('youtube.com')){
-		headers['user-agent']='Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/50.0.2661.102 Safari/537.36';
-	}
-	fetchStuff['headers']=headers;
-	response=await fetch(url,fetchStuff).catch(err=>{
-		res.status(500).contentType('text/html').send(err.message);
-		return false;
+	
+	var cookieStr='';
+	Object.entries(req.cookies).forEach((e,i)=>{
+		cookieStr+=`${e[0]}=${e[1]};`;
 	});
-	if(response==false)return;
+	headers['cookie']=cookieStr;
+	fetchStuff['headers']=headers;
+	
+	response=await fetch(url,fetchStuff).catch(err=>{
+		switch(err.code){
+			case'HPE_HEADER_OVERFLOW':
+				Object.entries(req.cookies).forEach((e,i)=>{ // clear all cookies
+					res.clearCookie(e[0]);
+				});
+				return res.redirect(req.url);
+				break
+			default:
+				return genMsg(req,res,697,err);
+				break
+		}
+		return genMsg(req,res,697,err);
+	});	
+	
+	if(response !=undefined && response.redirected == true){ // redirect has happened at least once
+		return res.redirect(307, '/'+response.url);
+	}
+	
+	if(typeof response.buffer != 'function')return; // error should have already been handled at this point so just return
+	
 	sendData=await response.buffer();
 	
 	response.headers.forEach((e,i,a)=>{
@@ -203,72 +399,110 @@ app.use(async (req,res,next)=>{
 	if(ct=='notset')ct=mime.getType(url.href.match(/\.(\w{2,4})/gi));
 	
 	if(ct==null || typeof ct=='undefined')ct='text/html'; // set to text/html as last ditch effort
+	if(ct.startsWith('text/html') && response.status == 200 && typeof req.query['pm-origin'] == 'undefined')req.session.ref=url.href;
 	
-	//if(ct.match(/(?!.*;.*)application\/.*?font.*/gi))return res.redirect(url.href);
+	// from here we assume all request session activites are complete
+	
+	// save new request session
+	
+	threads.parentPort.postMessage({type:'store_set', sid: req.session.sid, session: req.session});
 	
 	res.contentType(ct);
 	res.status(response.status);
-	// res.set('Cache-Control','max-age=31536000')
-	if(ct.startsWith('text/html') || ct.startsWith('application/')){
-		var tmp=sendData.toString('utf8');
-		var regUrlOri=reqUrl.origin.replace('.','\\.').replace('/','\\/'); // safe way to have url origin in regex
-		var ddd='';
+	
+	if(ct.includes('application/x-shockwave-flash') || ct.includes('font'))return res.send(sendData); // get straight to the font
+	
+	if(ct.startsWith('image'))res.set('Cache-Control','max-age=31536000'); // big cache for images
+	
+	if(ct.startsWith('text/') || ct.startsWith('application/') ){
+		var tmp=sendData.toString('utf8'),
+			regUrlOri=reqUrl.origin.replace('.','\\.').replace('/','\\/'), // safe way to have url origin in regex
+			urlOri=url.origin.replace('.','\\.').replace('/','\\/'), // safe way to have url origin in regex
+			str='';
 		sendData=await tmp;
-		sendData=await sendData;
-		sendData.split('\n').forEach(e=>ddd+=e+'\n');
-		sendData=await ddd
-		.replace(new RegExp(ipv.replace(/\./gi,'\\.'),'gi'),'255.255.255.255')
-		.replace(/window\.top\.location\.href="\/\/www.coolmath-games.com"/gi,'"t"')
+		sendData.split('\n').forEach(e=>str+=e+'\n');
+		if(ct.startsWith('text/css'))sendData=await htmlMinify.minify('<style>'+sendData+'</style>',{minifyCSS: true, }).replace(/(?:^<style>|<\/style>$)/gi,''); // cool trick to get htmlMinify to minify a css file and have it display correctly
+		if(ct.includes('javascript'))sendData=await str
+		.replace(/this\.xhr\.open\("GET",a\)/gi,`this.xhr.open("GET",location.origin+"/"+a)`)
 		;
 		if(ct.startsWith('text/html')){
-			sendData=await ddd
-			.replace(/(?<!base )(srcset|action|data|src|href)="\/((?!\/).*?)"/gi,'$1="/'+url.origin+'/$2"')
-			.replace(/(?<!base )(srcset|action|data|src|href)='\/((?!\/).*?)'/gi,'$1=\'/'+url.origin+'/$2\'')
-			.replace(new RegExp(`(srcset|action|data|src|href)="${reqUrl.hostname}(\/.*?)"`,'gi'),'$1="'+url.origin+'$2"')
-			.replace(new RegExp(`(srcset|action|data|src|href)=\'${reqUrl.hostname}(\/.*?)\'`,'gi'),'$1=\''+url.origin+'$2\'')
+			sendData=await str
+			.replace(/(?<!base )((?:target|href|src|srcset|data|action)\s*?=\s*?(?:"|'))\/\//gi,'$1https://')
+			.replace(/(?<!base )((?:target|href|src|srcset|data|action)\s*?=\s*?(?:"|'))((?!data:|javascript:)\/[\s\S]*?)((?:"|'))/gi,'$1'+url.origin+'$2$3')
+			.replace(/(?<!base )((?:target|href|src|srcset|data|action)\s*?=\s*?(?:"|'))((?!data:|javascript:)[\s\S]*?)((?:"|'))/gi,'$1/$2$3')
+			.replace(new RegExp(`("|')(${urlOri}.*?)("|')`,'gi'),'$1/$2$3')
 			.replace(/(xmlns(:[a-z]+)?=")\//gi, "$1")
 			.replace(/(<!DOCTYPE[^>]+")\//i, "$1")
 			.replace(url.host,`${reqUrl.host}/${url.host}`)
 			.replace(new RegExp(`/(https://)${reqUrl.host}/`,'gi'),'/$1')
-			.replace(/ ?integrity=".*?" ?/gi,'') // integrity cant be used 
-			.replace(/ ?nonce=".*?" ?/gi,'') // nonce = poo
-			.replace(/"(wss:\/\/.*?)"/gi,`"wss://${reqUrl.host}/ws/?ws=`+'$1"')
-			.replace(/'(wss:\/\/.*?)'/gi,`'wss://${reqUrl.host}/ws/?ws=`+"$1'")
-			.replace(/document\.location/gi,'pmUrl')
-			.replace(/window\.location/gi,'pmUrl')
+			.replace(/ ?(integrity|nonce)=".*?" ?/gi,'') // integrity and nonce cant be used 
+			.replace(/('|")(wss:\/\/.*?)('|")/gi,'$1'+`wss://${reqUrl.host}/ws/?ws=`+"$2$3")
+			.replace(/document\.location/gi,'pmUrl') // pm url should be defined in a script somewhere
+			.replace(/window\.location/gi,'pmUrl') // same as above
 			.replace(/<title.*?>.*?<\/ ?title>/gi,'<title>‮</title>')
 			.replace(/("|').[^"']*\.ico(?:\?.*?)?("|')/gi,'$1/favicon.ico$2')
 			.replace(/ ?onmousedown="return rwt\(this,.*?"/gi,'')
-			//.replace(/(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)/gi,'255.255.255.255')
-			.replace(new RegExp(`(?<!base )(srcset|action|data|src|href)="(?!(?:${reqUrl.origin.replace('/','\\/')}|\/))(.*?)"`,'gi'),'$1="'+reqUrl.origin+'/$2"')
-			.replace(new RegExp(`(?<!base )(srcset|action|data|src|href)='(?!(?:${reqUrl.origin.replace('/','\\/')}|\/))(.*?)'`,'gi'),'$1=\''+reqUrl.origin+'/$2\'')
-			.replace(new RegExp(ipv,'gi'),'255.255.255.255')
+			.replace(/("|')_(?:blank|top|parent)\1/gi,'$1_self$1')
+			.replace(/(<(?:iframe|object)\s*src=("|'))((?:(?!\?)[\s\S])*?)(?:\2)/gi,'$1$3?pm-origin='+btoa(url.host)+'$2') // this regex is for strings without the ? in it
+			.replace(/(<(?:iframe|object)\s*src=("|'))((?:(?!&pm-origin=)[\s\S])*?)(?:\2)/gi,'$1$3&pm-origin='+btoa(url.host)+'$2') // this regex for the strings without the &pm-origin= inside of it
 			.replace(new RegExp(`${regUrlOri}\/\.\/`,'gi'),`./`)
-			.replace(new RegExp(`${reqUrl.host}\/(?!https?:\/\/)(.*)`,'gi'),reqUrl.host+'/https://$1')
-			.replace(/pmUrl ?= ?("|').*?("|')/gi,'pmUrl=pmUrl')
-			.replace(/<script(?:>| (?!.*src)((?:.(?<!json))*)>)/i,'<script $1>var pmUrl=new URL("'+url.href+'");') // do this last!!
+			.replace(new RegExp(`(?:${reqUrl.origin}|${url.origin})/data:`,'gi'),'data:') // fix data urls last
+			.replace(/(<script(?:.*?)>(?:(?!<\/script>)[\s\S])*<\/script>)/i,'<script>var pmUrl=new URL("'+url.href+'");</script>$1')
+			.replace(/<\/body>/gi,'<script src="/pm-cgi/inject.js"></script></body>')
 			;
-			if(ddd.includes('<span class="ray_id">')){
-				// if cloudflare checks the browser (cant be completed)
-				sendData=await ddd.replace('</body>','  <script src="/static/cloudflareError.js"></script>\n</body>')
+			if(url.hostname != 'www.youtube.com'){ // run this on not youtube links
+				sendData=await sendData
+				.replace(new RegExp(ipv,'gi'),randomIP())
+				;
+			}
+			if(!aliasMode){
+				sendData=sendData
+				.replace(/<\/body>/gi,'<script src="/pm-cgi/windowURL.js"></script></body>')
+				;
+			}else if(aliasMode){ // short for aliasMode == true
+				sendData=sendData
+				.replace(new RegExp(`("|')\/${shor}(.*?)("|')`,'gi'),'$1/alias/'+aliasSet+'$2$3')
+				;
+			}
+			if(str.includes('cf-browser-verification cf-im-under-attack')){ // on cloudflare checks, inform the user we cant proxy this page 
+				sendData=sendData
+				.replace(/<\/body>/gi,'  <script type="text/javascript" src="/pm-cgi/cloudflare.js"></script>\n</body>')
+				.replace(/<\/head>/gi,'<link rel="stylesheet" href="/pm-cgi/cloudflare.css">\n</head>')
+				;
+			}
+			
+			if(config.workers && typeof req.query.debug == 'string' && req.query.debug == 'true'){
+				sendData=sendData
+				.replace(/<\/body>/gi,`
+<!-- [POWERMOUSE STATS]
+Worker: ${threads.threadId}
+Port: ${port}
+Host: ${os.hostname()}
+-->
+</body>`)
+				;
 			}
 			switch(url.host){
 				case'discord.com':
-					sendData=await sendData
-					.replace(`API_ENDPOINT: '//discord.com/api'`,`API_ENDPOINT: '/https://discordapp.com/api'`)
-					.replace(`REMOTE_AUTH_ENDPOINT: '//remote-auth-gateway.discord.gg'`,`REMOTE_AUTH_ENDPOINT: '//${reqUrl.host}/?ws=wss://remote-auth-gateway.discord.gg'`)
+					sendData=await sendData // hacky discord support
+					.replace(`API_ENDPOINT: '//discord.com/api'`,`API_ENDPOINT: '/https://discordapp.com/api'`) // api for discord.com is odd but discordapp.com works
+					.replace(`REMOTE_AUTH_ENDPOINT: '//remote-auth-gateway.discord.gg'`,`REMOTE_AUTH_ENDPOINT: '//${reqUrl.host}/ws/?ws=wss://remote-auth-gateway.discord.gg'`)
 					.replace(`WEBAPP_ENDPOINT: '//discord.com'`,`WEBAPP_ENDPOINT: '//${reqUrl.host}/https://discord.com'`)
 					.replace(`CDN_HOST: 'cdn.discordapp.com'`,`CDN_HOST: '${reqUrl.host}/https://cdn.discordapp.com'`)
-					.replace(`ASSET_ENDPOINT: 'https://discord.com'`,`ASSET_ENDPOINT: '/https://discord.com'`)
+					.replace(`ASSET_ENDPOINT: '/https://discord.com'`,`ASSET_ENDPOINT: '${reqUrl.origin}/https://discord.com'`)
 					.replace(`WIDGET_ENDPOINT: '//discord.com/widget'`,`WIDGET_ENDPOINT: '//${reqUrl.host}/https://discord.com/widget'`)
 					.replace(`NETWORKING_ENDPOINT: '//router.discordapp.net'`,`NETWORKING_ENDPOINT: '//${reqUrl.host}/https://router.discordapp.net'`)
 					.replace(`MIGRATION_DESTINATION_ORIGIN: 'https://discord.com'`,`MIGRATION_DESTINATION_ORIGIN: '${reqUrl.origin}/https://discord.com'`)
 					.replace(`MIGRATION_SOURCE_ORIGIN: 'https://discordapp.com'`,`MIGRATION_SOURCE_ORIGIN: '${reqUrl.origin}/https://discordapp.com'`)
-					.replace(``,``)
-					.replace(``,``)
+					.replace(/<\/body>/gi,`<script type='text/javascript' src='/pm-cgi/discord.js'></script>`)
 					;
 					break;
 				default:break;
+			}
+			try{
+				sendData=htmlMinify.minify(sendData,{minifyCSS: true, minifyJS: true});
+			}catch(err){
+			
 			}
 		}
 	}
@@ -276,6 +510,3 @@ app.use(async (req,res,next)=>{
 });
 
 app.use('/', express.static(path.join(__dirname, 'public'))); // static stuff
-
-module.exports.app = app;
-module.exports.server = server;
