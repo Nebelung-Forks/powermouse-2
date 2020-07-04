@@ -24,9 +24,11 @@ var config=JSON.parse(fs.readFileSync('config.json','utf-8')),
 	msgPage=page=fs.readFileSync(__dirname+'/public/error.html','utf8');
 	httpsAgent = new https.Agent({
 		rejectUnauthorized: false,
+		keepAlive: true,
 	}),
 	httpAgent = new http.Agent({
 		rejectUnauthorized: false,
+		keepAlive: true,
 	}),
 	genMsg=((req,res,code,value)=>{
 		var url=req.url,
@@ -312,7 +314,14 @@ app.use(async (req,res,next)=>{
 		response,
 		ct='notset',
 		sendData,
-		fetchStuff={method:req.method,redirect:'follow'};
+		fetchStuff={
+			method: req.method,
+			redirect: 'follow',
+			agent: (_parsedURL)=>{
+				if(_parsedURL.protocol == 'http:')return httpAgent;
+				else return httpsAgent;
+			},
+		};
 	
 	if(req.url.startsWith('/pm-cgi/')||req.url=='/favicon.ico')return next();
 	
@@ -369,8 +378,6 @@ app.use(async (req,res,next)=>{
 	if(!aliasMode && req.url!='/'+url.href)return res.redirect(307,'/'+url.href);
 	
 	var proto=url.protocol.substr(0,url.protocol.length-1);
-	if(proto=='http')fetchStuff['agent']=httpAgent
-	else if(proto=='https')fetchStuff['agent']=httpsAgent;
 	
 	if(req.method=='POST')fetchStuff['body']=JSON.stringify(req.body);
 	Object.entries(req.headers).forEach((e,i,a)=>{
