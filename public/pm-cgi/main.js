@@ -5,10 +5,21 @@ var getDifference=((begin,finish)=>{
 		var h=Math.round(ud.getUTCHours());
 		return `${h} hours, ${m} minutes, ${s} seconds`
 	}),
+	toCharcode=(str=>{
+		var output='';
+		str.split('').forEach((e,i)=>{
+			output=output+'&#'+str.charCodeAt(i)+';'
+		});
+		return output;
+	});
 	urlBar=document.getElementsByClassName('url')[0],
 	urlFill=document.getElementsByClassName('urlFill')[0],
 	activeElement=document.body,
-	prevActiveEle=document.body;
+	prevActiveEle=document.body,
+	addproto=((url)=>{
+		if (!/^(?:f|ht)tps?\:\/\//.test(url))url = "https://" + url;
+		return url;
+	});
 window.addEventListener('load',()=>{
 	var ele=document.getElementById('uptime'),
 		start=ele.getAttribute('time');
@@ -18,7 +29,6 @@ window.addEventListener('load',()=>{
 });
 
 urlBar.addEventListener('blur',e=>{
-	console.log(prevActiveEle);
 	if(prevActiveEle.getAttribute('class') == 'form-text url')return; // ignore element with that class when blurred
 	Array.from(urlFill.getElementsByClassName('auto-fill')).forEach(e=>{
 		e.parentNode.removeChild(e); // clean up old suggestions
@@ -35,12 +45,10 @@ urlBar.addEventListener('keyup',e=>{
 	xhttp.onreadystatechange=((e)=>{
 		if(xhttp.readyState == 4 && xhttp.status == 200){
 			var data=JSON.parse(xhttp.responseText); // our data is in a order of likely match to not likely match
-			console.log(data);
 			Array.from(urlFill.getElementsByClassName('auto-fill')).forEach(e=>{
 				e.parentNode.removeChild(e); // clean up old suggestions
 			});
 			data.forEach((e,i)=>{
-				console.log(e);
 				var suggestion=document.createElement('div'),
 					tldRegexp=/(?:\.{1,4}|\..{1,4}|\..{1,4}\..{1,4})($|\/)/gi,
 					url=input.replace(tldRegexp,'.'+e+'$1');
@@ -60,4 +68,13 @@ urlBar.addEventListener('keyup',e=>{
 	});
 	xhttp.open('GET','/suggestions?input='+encodeURI(input), true);
 	xhttp.send();
+});
+
+Array.from(document.getElementsByClassName('btn-fancy')).forEach((e,i)=>{
+	var data=e.getAttribute('data').split(' '),
+		url=addproto(atob(data[0]));
+	e.innerHTML=toCharcode(atob(data[1]));
+	e.addEventListener('click',()=>{
+		location.replace('/'+url);
+	});
 });
