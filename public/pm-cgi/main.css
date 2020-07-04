@@ -281,7 +281,7 @@ a p:hover:active, a span:active, #tempURL:active {
 	bottom: 10px;
 }
 
-.button-container {
+#button-container {
 	position: absolute;
 	display: flex;
 	width: calc(100% - 32px);
@@ -292,7 +292,7 @@ a p:hover:active, a span:active, #tempURL:active {
 	height: 75px;
 }
 
-.button-container a {
+#button-container a {
 	color: inherit;
 	text-decoration: none;
 }
@@ -337,21 +337,25 @@ a p:hover:active, a span:active, #tempURL:active {
 	box-shadow: inset 0 3px 5px rgba(0,0,0,.125);
 }
 
-.bnt-blu { background-image: linear-gradient(0deg, rgba(42,171,210,1) 0%, rgba(91,192,222,1) 100%); border-color: #28a4c9 }
-.bnt-blu:hover { background-color: #2aabd }
-.bnt-blu:hover:active { background-color: #2aabd2 }
+.bnt-blue { background-image: linear-gradient(0deg, rgb(42, 76, 210) 0%, rgb(91, 154, 222) 100%); border-color: #2850c9 }
+.bnt-blue:hover { background-color: #2a4cd2 }
+.bnt-blue:hover:active { background-color: #2a5cd2 }
+
+.bnt-cyan { background-image: linear-gradient(0deg, rgba(42,171,210,1) 0%, rgba(91,192,222,1) 100%); border-color: #28a4c9 }
+.bnt-cyan:hover { background-color: #2aabd }
+.bnt-cyan:hover:active { background-color: #2aabd2 }
 
 .bnt-red { background-image: linear-gradient(0deg, rgb(210, 42, 42) 0%, rgb(222, 91, 91) 100%); border-color: #c92828 }
 .bnt-red:hover { background-color: #d22a2a }
 .bnt-red:hover:active { background-color: #d22a2a }
 
-.bnt-ong { background-image: linear-gradient(0deg, rgb(210, 97, 42) 0%, rgb(222, 152, 91) 100%); border-color: #c95528 }
-.bnt-ong:hover { background-color: #d2612a }
-.bnt-ong:hover:active { background-color: #d2692a }
+.bnt-orange { background-image: linear-gradient(0deg, rgb(210, 97, 42) 0%, rgb(222, 152, 91) 100%); border-color: #c95528 }
+.bnt-orange:hover { background-color: #d2612a }
+.bnt-orange:hover:active { background-color: #d2692a }
 
-.bnt-grn { background-image: linear-gradient(0deg, rgb(42, 210, 76) 0%, rgb(91, 222, 118) 100%); border-color: #28c949 }
-.bnt-grn:hover { background-color: #2ad25c }
-.bnt-grn:hover:active { background-color: #2ad24c }
+.bnt-green { background-image: linear-gradient(0deg, rgb(42, 210, 76) 0%, rgb(91, 222, 118) 100%); border-color: #28c949 }
+.bnt-green:hover { background-color: #2ad25c }
+.bnt-green:hover:active { background-color: #2ad24c }
 
 @media only screen and (min-width: 768px) {
 	.git{

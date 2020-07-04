@@ -1,17 +1,23 @@
-var getDifference=((begin,finish)=>{
+var fancyButtons=[
+		['Reddit','old.reddit.com','orange'],
+		['Google','www.google.com','green'],
+		['YouTube','www.youtube.com','red'],
+		['Discord','www.discord.com/login','blue'],
+	],
+	getDifference=((begin,finish)=>{
 		var ud=new Date(finish-begin);
 		var s=Math.round(ud.getSeconds());
 		var m=Math.round(ud.getMinutes());
 		var h=Math.round(ud.getUTCHours());
 		return `${h} hours, ${m} minutes, ${s} seconds`
 	}),
-	toCharcode=(str=>{
+	strToCharcode=(str=>{
 		var output='';
 		str.split('').forEach((e,i)=>{
 			output=output+'&#'+str.charCodeAt(i)+';'
 		});
 		return output;
-	});
+	}),
 	urlBar=document.getElementsByClassName('url')[0],
 	urlFill=document.getElementsByClassName('urlFill')[0],
 	activeElement=document.body,
@@ -19,7 +25,21 @@ var getDifference=((begin,finish)=>{
 	addproto=((url)=>{
 		if (!/^(?:f|ht)tps?\:\/\//.test(url))url = "https://" + url;
 		return url;
+	}),
+	buttonsContainer=document.getElementById('button-container');
+
+fancyButtons.forEach((e,i)=>{
+	var button=document.createElement('div');
+	buttonsContainer.appendChild(button); // apend to container
+	
+	button.setAttribute('class','ns btn-fancy bnt-'+e[2]);
+	button.innerHTML=strToCharcode(e[0]); // set contents of button
+	
+	button.addEventListener('click', ()=>{ // dont use a hrefs becaus that will show up in the document
+		location.replace('/prox?url='+e[1]);
 	});
+});
+
 window.addEventListener('load',()=>{
 	var ele=document.getElementById('uptime'),
 		start=ele.getAttribute('time');
@@ -68,13 +88,4 @@ urlBar.addEventListener('keyup',e=>{
 	});
 	xhttp.open('GET','/suggestions?input='+encodeURI(input), true);
 	xhttp.send();
-});
-
-Array.from(document.getElementsByClassName('btn-fancy')).forEach((e,i)=>{
-	var data=e.getAttribute('data').split(' '),
-		url=addproto(atob(data[0]));
-	e.innerHTML=toCharcode(atob(data[1]));
-	e.addEventListener('click',()=>{
-		location.replace('/'+url);
-	});
 });
