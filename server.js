@@ -107,7 +107,7 @@ global.tlds=/./g; // define tlds before set
 global.tldList=[];
 
 var data=threads.workerData;
-global.sessions={}
+global.sessions={} // object for just vibing
 ipv = data.ipv;
 tlds = data.tlds;
 port = data.port;
@@ -266,28 +266,46 @@ app.use((req,res,next)=>{
 	res.redirect('/'+url.href);
 });
 
-app.use(async (req,res,next)=>{
-	if(req.query.ws != undefined)return next(); // bruh this probably a websocket dont proxy that
+app.use((req,res,next)=>{
+	// hacky implementation of session stuff
+	// this will add request.session ( a proxy thing acting as an object so it can see whats being added to push to the centeral script )
 	
-	var sid = req.cookies['connect.sid'];
+	var sid = req.cookies['connect.sid'],
+		cookie = { maxAge: 900000, httpOnly: true, secure: true, sameSite: 'Lax' };
 	
-	if(sid == undefined){
+	if(sid == undefined || sid.length <= 7){
 		while(true){
-			sid = crypto.randomBytes(16).toString('hex');
+			sid=crypto.randomBytes(32).toString('hex');
 			if(sessions[sid] != null)continue;
 			break;
 		}
 	}
 	
-	res.cookie('connect.sid', sid , { maxAge: 900000, httpOnly: true });
+	res.cookie('connect.sid', sid , cookie);
+	
+	res.cookie('pm-server', os.hostname().substr(0,4).toLowerCase() , cookie);
 	
 	if(sessions[sid] == null)sessions[sid]={}
 	
 	sessions[sid].__lastAccess = Date.now();
 	sessions[sid].sid = sid;
+	sessions[sid].cookie = cookie;
 	
-	req.session=sessions[sid];
+	req.session=new Proxy(sessions[sid], {
+		set: (target, prop, value)=>{
+			Reflect.set(target, prop, value);
+			threads.parentPort.postMessage({type:'store_set', sid: target.sid, session: target });
+		}
+	});
 	
+	sessions[sid];
+	
+	return next();
+});
+
+app.use(async (req,res,next)=>{
+	//console.log(req.session);
+	if(req.query.ws != undefined)return next(); // bruh this probably a websocket dont proxy that
 	var reqUrl=new URL('https://'+req.get('host')+req.originalUrl),
 		url,
 		headers={},
@@ -400,12 +418,6 @@ app.use(async (req,res,next)=>{
 	
 	if(ct==null || typeof ct=='undefined')ct='text/html'; // set to text/html as last ditch effort
 	if(ct.startsWith('text/html') && response.status == 200 && typeof req.query['pm-origin'] == 'undefined')req.session.ref=url.href;
-	
-	// from here we assume all request session activites are complete
-	
-	// save new request session
-	
-	threads.parentPort.postMessage({type:'store_set', sid: req.session.sid, session: req.session});
 	
 	res.contentType(ct);
 	res.status(response.status);

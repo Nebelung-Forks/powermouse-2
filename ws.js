@@ -1,3 +1,6 @@
+const websocket=require('ws'),
+	fs=require('fs');
+
 module.exports=((wss,conns)=>{
 	wss.on('connection',(cli, req)=>{
 		let ID = String(++ conns).padStart(6, 0);
