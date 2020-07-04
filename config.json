@@ -2,7 +2,7 @@
 	"listenip":"0.0.0.0",
 	"port":80,
 	"directIPs":false,
-	"ssl":true,
+	"ssl":false,
 	"workers": false,
 	"workerCount": 4,
 	"maxWorkerErrors": 12,
