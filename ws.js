@@ -1,5 +1,6 @@
 const websocket=require('ws'),
-	fs=require('fs');
+	fs=require('fs'),
+	util=require('util');
 
 module.exports=((wss,conns)=>{
 	wss.on('connection',(cli, req)=>{
