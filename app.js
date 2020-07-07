@@ -4,7 +4,6 @@ const fs=require('fs'),
 	util=require('util'),
 	rl=require('serverline'),
 	config=JSON.parse(fs.readFileSync('config.json','utf8') ),
-	port=process.env.PORT||config.port,
 	fetch=require('node-fetch');
 var errors=0, // set this to 0 every 2 seconds
 	workers={
@@ -63,9 +62,10 @@ try{
 		var makeWorker=((i)=>{
 			if(config.maxWorkerErrors < errors )return console.log('Error count at',config.maxWorkerErrors,', refusing to create more workers..');
 			const index=i+1;
-			
+			var pogPort=process.env.PORT||config.port;
+			if(config.workers == true)pogPort=pogPort+i;
 			var worker = new threads.Worker('./server.js', {
-				workerData: { port: port+i, ipv: ipv, tlds: tlds, tldList: tldList }
+				workerData: { port: pogPort, ipv: ipv, tlds: tlds, tldList: tldList }
 			});
 			
 			workers.instances.push(worker);

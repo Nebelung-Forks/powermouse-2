@@ -151,7 +151,7 @@ else server=http.createServer(app).listen(port, config.listenip,ready);
 
 var wss=new websocket.Server({
 		server: server,
-		path: '/ws/'
+		// path: '/ws/'
 	}),conns=0;
 
 require('./ws.js')(wss,conns);
@@ -273,7 +273,10 @@ app.use((req,res,next)=>{
 	// this will add request.session ( a proxy thing acting as an object so it can see whats being added to push to the centeral script )
 	
 	var sid = req.cookies['connect.sid'],
-		cookie = { maxAge: 900000, httpOnly: true, secure: true, sameSite: 'Lax' };
+		reqUrl=new URL('https://'+req.get('host')+req.originalUrl),
+		cookie = { maxAge: 900000, httpOnly: true, domain: reqUrl.host.match(/\..{2,3}(?:\.?.{2,3}).*?$/gim), secure: true, sameSite: 'Lax' };
+	
+	// res.setHeader('Content-Security-Policy',`default-src 'self' *.${reqUrl.hostname}`);
 	
 	if(sid == undefined || sid.length <= 7){
 		while(true){
@@ -306,8 +309,7 @@ app.use((req,res,next)=>{
 });
 
 app.use(async (req,res,next)=>{
-	//console.log(req.session);
-	if(req.query.ws != undefined)return next(); // bruh this probably a websocket dont proxy that
+	if(req.query.ws != undefined)return next(); // noo websocket script did not handle 
 	var reqUrl=new URL('https://'+req.get('host')+req.originalUrl),
 		url,
 		headers={},
@@ -323,15 +325,15 @@ app.use(async (req,res,next)=>{
 			},
 		};
 	
-	if(req.url.startsWith('/pm-cgi/')||req.url=='/favicon.ico')return next();
+	if(reqUrl.pathname.startsWith('/pm-cgi/')||reqUrl.pathname=='/favicon.ico')return next();
 	
-	if(req.url=='/'){
+	if(reqUrl.pathname=='/'){
 		res.contentType('text/html');
 		res.status(200);
 		return res.send(fs.readFileSync(__dirname+'/public/index.html','utf8').replace("<span time='%PLACEHOLDER%' id='uptime'>%PLACEHOLDER%</span>",`<span time='${start}' id='uptime'>${getDifference(start,Date.now())}</span>`));
 	}
 	
-	if(req.url=='/https://discordapp.com/api/v6/auth/login')return res.status(400).contentType('application/json; charset=utf-8').send(JSON.stringify({ email: 'Use the QR code scanner or token login' }));
+	if(reqUrl.pathname=='/https://discordapp.com/api/v6/auth/login')return res.status(400).contentType('application/json; charset=utf-8').send(JSON.stringify({ email: 'Use the QR code scanner or token login' }));
 	
 	var tooManyOrigins=new RegExp(`${reqUrl.origin.replace(/\//g,'\\/').replace(/\./gi,'\\.')}\/`,'gi');
 	if(req.url.substr(1).match(tooManyOrigins))return res.redirect(307,req.url.replace(tooManyOrigins,''));
@@ -340,6 +342,7 @@ app.use(async (req,res,next)=>{
 	if(req.url.substr(1).match(tooManyOrigins))return res.redirect(307,req.url.replace(tooManyOrigins,''));
 	
 	reloadURLs();
+	
 	var aliasMode=urlData.some(e=>req.url.match(new RegExp(`^/alias/${e.alias}`,'gi')));
 	var shor='placeholder', newURL='placeholder', aliasSet='placeholder';
 	if( aliasMode ){ // if a shortened url link matches in the url stuff
@@ -455,7 +458,7 @@ app.use(async (req,res,next)=>{
 			.replace(url.host,`${reqUrl.host}/${url.host}`)
 			.replace(new RegExp(`/(https://)${reqUrl.host}/`,'gi'),'/$1')
 			.replace(/ ?(integrity|nonce)=".*?" ?/gi,'') // integrity and nonce cant be used 
-			.replace(/('|")(wss:\/\/.*?)('|")/gi,'$1'+`wss://${reqUrl.host}/ws/?ws=`+"$2$3")
+			.replace(/('|")(wss:\/\/.*?)('|")/gi,'$1'+`wss://${reqUrl.host}/?ws=`+"$2$3")
 			.replace(/document\.location/gi,'pmUrl') // pm url should be defined in a script somewhere
 			.replace(/window\.location/gi,'pmUrl') // same as above
 			.replace(/<title.*?>.*?<\/ ?title>/gi,'<title>‮</title>')
@@ -505,7 +508,7 @@ Host: ${os.hostname()}
 				case'discord.com':
 					sendData=await sendData // hacky discord support
 					.replace(`API_ENDPOINT: '//discord.com/api'`,`API_ENDPOINT: '/https://discordapp.com/api'`) // api for discord.com is odd but discordapp.com works
-					.replace(`REMOTE_AUTH_ENDPOINT: '//remote-auth-gateway.discord.gg'`,`REMOTE_AUTH_ENDPOINT: '//${reqUrl.host}/ws/?ws=wss://remote-auth-gateway.discord.gg'`)
+					.replace(`REMOTE_AUTH_ENDPOINT: '//remote-auth-gateway.discord.gg'`,`REMOTE_AUTH_ENDPOINT: '//${reqUrl.host}/?ws=wss://remote-auth-gateway.discord.gg'`)
 					.replace(`WEBAPP_ENDPOINT: '//discord.com'`,`WEBAPP_ENDPOINT: '//${reqUrl.host}/https://discord.com'`)
 					.replace(`CDN_HOST: 'cdn.discordapp.com'`,`CDN_HOST: '${reqUrl.host}/https://cdn.discordapp.com'`)
 					.replace(`ASSET_ENDPOINT: '/https://discord.com'`,`ASSET_ENDPOINT: '${reqUrl.origin}/https://discord.com'`)
