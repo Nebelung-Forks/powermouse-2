@@ -2,12 +2,12 @@
 Powerful http(s) web proxy and flagship TitaniumNetwork proxy
 #### Maintained by Divide#1335 on Discord
 
-[![Deploy to Heroku](https://www.herokucdn.com/deploy/button.svg)](https://heroku.com/deploy?template=https://github.com/titaniumnetwork-dev/powermouse/tree/master) [![Deploy to Azure](https://azuredeploy.net/deploybutton.svg)](https://azuredeploy.net/repository=https://github.com/titaniumnetwork-dev/powermouse) [![Run on Repl.it](https://repl.it/badge/github/titaniumnetwork-dev/powermouse)](https://repl.it/github/titaniumnetwork-dev/powermouse)
+[![Deploy to Heroku](https://www.herokucdn.com/deploy/button.svg)](https://heroku.com/deploy?template=https://github.com/Titanium-Network/powermouse/tree/master) [![Deploy to Azure](https://azuredeploy.net/deploybutton.svg)](https://azuredeploy.net/repository=https://github.com/Titanium-Network/powermouse) [![Run on Repl.it](https://repl.it/badge/github/Titanium-Network/powermouse)](https://repl.it/github/Titanium-Network/powermouse)
 
 ## Installation:
 ### Local Installation (Windows)
 1. Install NodeJS and NPM from [here](https://nodejs.org/en/download/).
-2. Download this repo as a zip archive from [here](https://github.com/titaniumnetwork-dev/powermouse/archive/master.zip).
+2. Download this repo as a zip archive from [here](https://github.com/Titanium-Network/powermouse/archive/master.zip).
 3. Extract the zip archive to its own directory (try the desktop).
 4. Open the command line. Press Windows Key (superkey/command) + R. Type "cmd". Click enter.
 5. Wait for a black box (cmd) to appear.
@@ -27,7 +27,7 @@ npm start
 10. The page will be available at http://127.0.0.1:8080/ or whatever you set it to in the config.json file. Note: this will only be accessible from your local computer. If you want to set this up for others to use (or you to use elsewhere), refer to the VPS Installation section.
 ### Local Installation (MacOS)
 1. Install NodeJS and NPM from [here](https://nodejs.org/en/download/).
-2. Download this repo as a zip archive from [here](https://github.com/titaniumnetwork-dev/powermouse/archive/master.zip).
+2. Download this repo as a zip archive from [here](https://github.com/Titanium-Network/powermouse/archive/master.zip).
 3. Extract the zip archive to its own directory (try the desktop).
 4. Open the terminal. Press Command (superkey/windows key) + Space. This should open spotlight. Type "terminal", and hit enter.
 5. A white box will appear. Wait 1-10 seconds until there is a dollar sign ($) at the end of the last line.
@@ -55,7 +55,7 @@ sudo apt install git curl -y && curl -sL https://deb.nodesource.com/setup_14.x |
 ```
 3. Download Powermouse. Run the following command.
 ```
-git clone https://github.com/titaniumnetwork-dev/powermouse.git
+git clone https://github.com/Titanium-Network/powermouse.git
 ```
 4. Install more dependencies. Run the following command.
 ```
