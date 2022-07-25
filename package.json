@@ -5,13 +5,13 @@
 	"main": "app.js",
 	"repository": {
 		"type": "git",
-		"url": "https://github.com/titaniumnetwork-dev/powermouse.git"
+		"url": "https://github.com/Titanium-Network/powermouse.git"
 	},
 	"keywords": [],
 	"author": "",
 	"license": "GPL-3.0",
 	"bugs": {
-		"url": "https://github.com/titaniumnetwork-dev/powermouse/issues"
+		"url": "https://github.com/Titanium-Network/powermouse/issues"
 	},
 	"scripts": {
 		"start": "node app.js",
